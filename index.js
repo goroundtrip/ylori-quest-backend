@@ -1,46 +1,23 @@
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const { GoogleSpreadsheet } = require("google-spreadsheet");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+const appendToSheet = require('./sheet');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-app.post("/submit", async (req, res) => {
+app.post('/submit', async (req, res) => {
+  const { name, email, wallet } = req.body;
+
   try {
-    const { name, email, wallet, answer1, answer2 } = req.body;
-    if (!name || !email || !wallet || !answer1 || !answer2) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-
-    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-    await doc.useServiceAccountAuth({
-      client_email: process.env.CLIENT_EMAIL,
-      private_key: process.env.PRIVATE_KEY.replace(/\\n/g, "\n"),
-    });
-
-    await doc.loadInfo();
-    const sheet = doc.sheetsByIndex[0];
-    await sheet.addRow({
-      Name: name,
-      Email: email,
-      Wallet: wallet,
-      Q1: answer1,
-      Q2: answer2,
-      Timestamp: new Date().toISOString(),
-    });
-
-    res.status(200).send({ message: "Submission successful" });
+    await appendToSheet({ Name: name, Email: email, Wallet: wallet });
+    res.status(200).json({ message: 'Success! Your quest was recorded.' });
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error", error: err.message });
+    console.error('Error appending to sheet:', err);
+    res.status(500).json({ error: 'Failed to submit quest' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
